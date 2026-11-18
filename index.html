@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Tip Vault</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<meta name="theme-color" content="#3346c8">
+<style>
+:root{--bg:#f3f4f7;--surface:#fff;--ink:#171a21;--muted:#5b6272;--line:#dde0e7;--accent:#3346c8;--accent-ink:#fff}
+@media (prefers-color-scheme:dark){:root{--bg:#0f1116;--surface:#181b22;--ink:#e8eaf0;--muted:#9aa2b2;--line:#2b303b;--accent:#8c98ff;--accent-ink:#0f1116;color-scheme:dark}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.5 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  padding:max(24px,env(safe-area-inset-top)) max(16px,env(safe-area-inset-right)) 32px max(16px,env(safe-area-inset-left))}
+main{max-width:520px;margin:0 auto;display:grid;gap:16px}
+h1{font-size:24px;margin:0;display:flex;align-items:center;gap:10px}
+h1 img{width:36px;height:36px;border-radius:9px}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:16px;display:grid;gap:10px}
+.btn{display:inline-flex;justify-content:center;align-items:center;border-radius:10px;padding:12px 16px;font-weight:600;font-size:16px;text-decoration:none;border:1px solid var(--line);background:var(--surface);color:var(--ink);cursor:pointer}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.row{display:flex;gap:8px;flex-wrap:wrap}
+code{font-size:13px;overflow-wrap:anywhere;color:var(--muted)}
+p{margin:0}.muted{color:var(--muted);font-size:14px}
+ol{margin:0;padding-left:20px;display:grid;gap:4px}
+[hidden]{display:none!important}
+</style>
+</head>
+<body>
+<main>
+  <h1><img src="icon-192.png" alt="">Tip Vault</h1>
+
+  <section class="card" id="sharing" hidden>
+    <p id="msg"><b>Salvo il link in Tip Vault…</b></p>
+    <code id="link"></code>
+    <div class="row">
+      <a class="btn primary" id="go" href="#">Apri Tip Vault</a>
+      <button class="btn" id="copy" type="button">Copia link</button>
+    </div>
+    <p class="muted">Se Tip Vault si apre senza il link salvato, torna qui, premi “Copia link” e incollalo in “+ Aggiungi”.</p>
+  </section>
+
+  <section class="card" id="home">
+    <p>Ponte di condivisione per il tuo archivio Tip Vault su claude.ai.</p>
+    <a class="btn primary" id="open" href="#">Apri Tip Vault</a>
+    <div id="last" hidden class="muted">Ultimo link condiviso: <code id="lastLink"></code> <button class="btn" id="copyLast" type="button" style="padding:6px 10px;font-size:13px">Copia</button></div>
+  </section>
+
+  <section class="card" id="install">
+    <b>Installazione su Android</b>
+    <ol>
+      <li>Apri questa pagina in <b>Chrome</b>.</li>
+      <li>Menu ⋮ → <b>Installa app</b> (o “Aggiungi a schermata Home” → Installa).</li>
+      <li>Da Instagram, YouTube o Facebook: <b>Condividi</b> → <b>Tip Vault</b>. Se non lo vedi subito, cercalo in “Altro” e fissalo in alto.</li>
+    </ol>
+    <p class="muted">Tip Vault si apre con il tuo account claude.ai: accedi una volta in Chrome.</p>
+  </section>
+</main>
+<script>
+const VAULT="https://claude.ai/artifact/QxZgeVNEZRTprAwLeABTwm";
+const $=s=>document.querySelector(s);
+function enc(s){const b=new TextEncoder().encode(s);let bin="";b.forEach(x=>bin+=String.fromCharCode(x));
+  return btoa(bin).replace(/=+$/,"").replace(/[+/]/g,c=>c==="+"?"-1":"-2")}
+function copy(t,btn){const done=()=>{btn.textContent="Copiato"};
+  if(navigator.clipboard?.writeText)navigator.clipboard.writeText(t).then(done,()=>prompt("Copia il link",t));else prompt("Copia il link",t)}
+let last=null;try{last=localStorage.getItem("tv:last")}catch{}
+
+const p=new URLSearchParams(location.search);
+const url=p.get("url")||"", title=p.get("title")||"", text=p.get("text")||"";
+const standalone=matchMedia("(display-mode: standalone)").matches||navigator.standalone;
+$("#open").href=VAULT;
+if(standalone)$("#install").hidden=true;
+
+if(url||text||title){
+  // Testo condiviso: link + eventuale titolo (YouTube manda "Titolo + link").
+  const parts=[];
+  if(url&&!text.includes(url))parts.push(url);
+  if(title&&!text.includes(title))parts.push(title);
+  if(text)parts.push(text);
+  const payload=parts.join("\n").slice(0,700);
+  const target=VAULT+"#add-"+enc(payload);
+  try{localStorage.setItem("tv:last",(payload.match(/https?:\/\/\S+/)||[payload])[0])}catch{}
+  $("#home").hidden=true;$("#install").hidden=true;$("#sharing").hidden=false;
+  $("#link").textContent=payload;$("#go").href=target;
+  $("#copy").onclick=e=>copy((payload.match(/https?:\/\/\S+/)||[payload])[0],e.currentTarget);
+  try{history.replaceState(null,"","./")}catch{}
+  setTimeout(()=>location.assign(target),250);
+}else{
+  if(last){$("#last").hidden=false;$("#lastLink").textContent=last;$("#copyLast").onclick=e=>copy(last,e.currentTarget)}
+  if(standalone&&!last)location.replace(VAULT);
+}
+if("serviceWorker" in navigator)navigator.serviceWorker.register("sw.js").catch(()=>{});
+</script>
+</body>
+</html>
